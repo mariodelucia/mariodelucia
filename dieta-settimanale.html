@@ -1,0 +1,251 @@
+<title>La mia dieta settimanale</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: colonna unica tipo "quaderno da cucina" — selettore giorni in alto, i 5 pasti come timeline verticale, poi riepilogo e consigli */
+:root{
+  --bg:#f6f8f4; --surface:#ffffff; --fg:#1d2a22; --muted:#5f6f64; --line:#dde5dc;
+  --accent:#2f7a4f; --accent-soft:#e3f1e7; --tomato:#c8553d; --tomato-soft:#fbe9e4;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121814; --surface:#1a221d; --fg:#e6eee8; --muted:#9aaa9f; --line:#2b362f;
+  --accent:#6cc38f; --accent-soft:#1f3328; --tomato:#ec8a72; --tomato-soft:#3a231d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121814; --surface:#1a221d; --fg:#e6eee8; --muted:#9aaa9f; --line:#2b362f;
+  --accent:#6cc38f; --accent-soft:#1f3328; --tomato:#ec8a72; --tomato-soft:#3a231d; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.55}
+.wrap{max-width:760px;margin:0 auto;padding-block:28px 56px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:36px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(2rem,6vw,2.8rem);font-weight:800;letter-spacing:-.02em}
+h2{font-size:1.5rem;font-weight:700}
+.eyebrow{font-size:.75rem;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);font-weight:600}
+.lead{color:var(--muted);margin:8px 0 0;max-width:62ch}
+header{display:flex;flex-direction:column;gap:6px}
+
+/* selettore giorni */
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.day-btn{font:600 .85rem var(--body);border:1px solid var(--line);background:var(--surface);color:var(--fg);
+  border-radius:12px;padding:10px 0;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px}
+.day-btn small{font-size:.65rem;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.day-btn[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.day-btn[aria-selected="true"] small{color:var(--bg);opacity:.85}
+.day-btn:focus-visible,.chk:focus-visible{outline:3px solid var(--tomato);outline-offset:2px}
+
+.day-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px}
+.today-pill{font-size:.75rem;font-weight:600;background:var(--tomato-soft);color:var(--tomato);padding:3px 10px;border-radius:99px}
+.progress{font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* timeline pasti */
+.meals{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0;border-left:2px solid var(--line);margin-left:9px}
+.meal{position:relative;padding:0 0 22px 26px}
+.meal:last-child{padding-bottom:0}
+.meal::before{content:"";position:absolute;left:-8px;top:6px;width:14px;height:14px;border-radius:50%;
+  background:var(--bg);border:2px solid var(--accent)}
+.meal.done::before{background:var(--accent)}
+.meal-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.meal-name{font-family:var(--display);font-weight:700;font-size:1.15rem}
+.meal-time{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.meal.main .meal-name{color:var(--accent)}
+.foods{list-style:none;margin:8px 0 0;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  display:flex;flex-direction:column;gap:6px}
+.foods li{display:flex;justify-content:space-between;gap:12px;align-items:baseline;border-bottom:1px dashed var(--line);padding-bottom:6px}
+.foods li:last-child{border-bottom:0;padding-bottom:0}
+.foods .q{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap;color:var(--fg)}
+.foods .alt{font-size:.8rem;color:var(--tomato);font-weight:600;text-transform:uppercase;letter-spacing:.06em;border:0;padding:0;justify-content:flex-start}
+.note{font-size:.85rem;color:var(--muted);margin:6px 0 0}
+.meal.done .foods{opacity:.55}
+.chk{margin-left:auto;font:500 .8rem var(--body);border:1px solid var(--line);background:transparent;color:var(--muted);
+  border-radius:99px;padding:4px 12px;cursor:pointer}
+.meal.done .chk{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+
+/* tabella settimana */
+.table-box{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:860px;font-size:.82rem}
+th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+thead th{font-family:var(--display);font-size:.9rem;background:var(--accent-soft);color:var(--fg)}
+tbody th{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);white-space:nowrap}
+td.today,th.today{background:var(--tomato-soft)}
+tr:last-child td,tr:last-child th{border-bottom:0}
+
+/* consigli */
+.tips{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.tip{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
+.tip h3{font-size:1rem;margin-bottom:4px}
+.tip p{margin:0;font-size:.9rem;color:var(--muted)}
+.shop{columns:2 200px;column-gap:24px;padding-left:18px;margin:0}
+.shop li{break-inside:avoid;margin-bottom:4px}
+.shop .q{color:var(--muted);font-variant-numeric:tabular-nums}
+.small{font-size:.8rem;color:var(--muted)}
+section{display:flex;flex-direction:column;gap:14px}
+@media (max-width:480px){.day-btn{font-size:.75rem;padding:8px 0}.day-btn small{display:none}}
+@media (prefers-reduced-motion:no-preference){.meal::before,.foods{transition:all .2s}}
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Piano alimentare · 7 giorni</span>
+    <h1>La mia dieta settimanale</h1>
+    <p class="lead">Ogni giorno 5 pasti: colazione, spuntino di metà mattina, pranzo, spuntino pomeridiano e cena. Scegli il giorno e trovi cosa mangiare e quanto. Si apre già sul giorno di oggi.</p>
+  </header>
+
+  <section aria-label="Giorno">
+    <div class="days" role="tablist" id="days"></div>
+    <div class="day-head">
+      <h2 id="day-title">Lunedì</h2>
+      <span id="today-pill" class="today-pill" hidden>Oggi</span>
+      <span class="progress" id="progress"></span>
+    </div>
+    <ol class="meals" id="meals"></ol>
+    <p class="small">Gli orari sono indicativi: l'importante è mantenere circa 2,5–3 ore tra un pasto e l'altro. Puoi spuntare i pasti man mano (resta salvato solo su questo dispositivo).</p>
+  </section>
+
+  <section>
+    <h2>Tutta la settimana</h2>
+    <div class="table-box"><table id="week"></table></div>
+  </section>
+
+  <section>
+    <h2>Regole pratiche</h2>
+    <div class="tips">
+      <div class="tip"><h3>Pesa a crudo</h3><p>Pasta, riso, legumi e carne/pesce si pesano crudi, salvo dove è scritto "cotto". I legumi: 80 g secchi corrispondono a circa 150 g già cotti (es. in barattolo, sgocciolati).</p></div>
+      <div class="tip"><h3>Olio: 10 g a pasto</h3><p>10 g sono circa un cucchiaio raso. Meglio olio extravergine, a crudo, misurato col cucchiaio e non "a occhio".</p></div>
+      <div class="tip"><h3>Verdure</h3><p>Dove c'è scritto "verdure" puoi scegliere tu: zucchine, broccoli, spinaci, insalata, peperoni, finocchi… Cotte al vapore, alla piastra o crude.</p></div>
+      <div class="tip"><h3>Frutta 150 g</h3><p>Circa un frutto medio: una mela, una pera, un'arancia, due kiwi o una tazza di fragole.</p></div>
+      <div class="tip"><h3>Prodotti giusti</h3><p>Biscottate e cereali integrali, marmellata senza zuccheri aggiunti, yogurt greco bianco 0–2% senza zucchero, tonno al naturale (non sott'olio).</p></div>
+      <div class="tip"><h3>Acqua</h3><p>Bevi spesso durante la giornata (almeno 1,5–2 litri). Evita bibite zuccherate e limita l'alcol.</p></div>
+    </div>
+    <p class="small">Per dubbi o sostituzioni chiedi sempre al tuo personal trainer o a un nutrizionista: questa pagina riporta solo il piano che ti ha dato.</p>
+  </section>
+
+  <section>
+    <h2>Lista della spesa per la settimana</h2>
+    <ul class="shop">
+      <li>Fette biscottate integrali <span class="q">· 120 g</span></li>
+      <li>Marmellata senza zuccheri aggiunti <span class="q">· 60 g</span></li>
+      <li>Cereali integrali <span class="q">· 90 g</span></li>
+      <li>Yogurt greco <span class="q">· 750 g (5 vasetti da 150 g)</span></li>
+      <li>Frutta di stagione <span class="q">· 5 porzioni + 2 mele</span></li>
+      <li>Fesa di tacchino a fette <span class="q">· 120 g</span></li>
+      <li>Bresaola <span class="q">· 40 g</span></li>
+      <li>Petto di tacchino <span class="q">· 150 g</span></li>
+      <li>Hamburger di tacchino <span class="q">· 180 g</span></li>
+      <li>Manzo magro <span class="q">· 180 g (+120 g macinato se scegli il ragù domenica)</span></li>
+      <li>Petto di pollo <span class="q">· 170 g</span></li>
+      <li>Uova <span class="q">· 2</span></li>
+      <li>Tonno al naturale <span class="q">· 160 g</span></li>
+      <li>Sogliola <span class="q">· 240 g</span></li>
+      <li>Orata o merluzzo <span class="q">· 230 g</span></li>
+      <li>Salmone affumicato <span class="q">· 100 g</span></li>
+      <li>Vongole sgusciate <span class="q">· 150 g (se le scegli domenica)</span></li>
+      <li>Riso basmati <span class="q">· 160 g</span></li>
+      <li>Pasta <span class="q">· 70 g</span></li>
+      <li>Piadina integrale <span class="q">· 90 g</span></li>
+      <li>Pane integrale <span class="q">· 140 g</span></li>
+      <li>Legumi secchi a scelta <span class="q">· 80 g</span></li>
+      <li>Philadelphia light <span class="q">· 40 g</span></li>
+      <li>Mais in scatola <span class="q">· 80 g</span></li>
+      <li>Salsa di pomodoro <span class="q">· 100 g</span></li>
+      <li>Mandorle e noci <span class="q">· 40 g</span></li>
+      <li>Snack al parmigiano <span class="q">· 16 g</span></li>
+      <li>Pomodorini <span class="q">· 300 g</span></li>
+      <li>Zucchine <span class="q">· 200 g</span></li>
+      <li>Fagiolini <span class="q">· 200 g</span></li>
+      <li>Lattuga, rucola, carote <span class="q">· 100 g / 50 g / 100 g</span></li>
+      <li>Verdure miste <span class="q">· circa 1,7 kg</span></li>
+      <li>Olio extravergine d'oliva</li>
+      <li>Pizza margherita <span class="q">· sabato sera</span></li>
+    </ul>
+  </section>
+</div>
+
+<script>
+const T = {col:"7:00–8:00", sm:"10:00–10:30", pr:"13:00", sp:"16:30", ce:"20:00"};
+const NAMES = {col:"Colazione", sm:"Spuntino mattina", pr:"Pranzo", sp:"Spuntino pomeriggio", ce:"Cena"};
+const COL_A = [["Fette biscottate integrali","30 g"],["Marmellata senza zuccheri aggiunti","15 g"]];
+const COL_B = [["Yogurt greco","150 g"],["Cereali integrali","30 g"]];
+const DAYS = [
+ {n:"Lunedì", s:"Lun", m:{col:COL_A, sm:[["Fesa di tacchino","40 g"]],
+   pr:[["Riso basmati","80 g"],["Tonno al naturale","80 g"],["Pomodorini","150 g"],["Mais in scatola","80 g"],["Olio","10 g"]],
+   sp:[["Yogurt greco","150 g"]],
+   ce:[["Frittata","2 uova"],["Verdure","200 g"],["Pane integrale","50 g"],["Olio","10 g"]]}},
+ {n:"Martedì", s:"Mar", m:{col:COL_B, sm:[["Mela","150 g"]],
+   pr:[["Piadina integrale","90 g"],["Fesa di tacchino","80 g"],["Philadelphia light","40 g"],["Rucola","50 g"]],
+   sp:[["Mandorle o noci","15 g"]],
+   ce:[["Sogliola","240 g"],["Verdure","250 g"],["Olio","10 g"]]}},
+ {n:"Mercoledì", s:"Mer", m:{col:COL_A, sm:[["Frutta","150 g"]],
+   pr:[["Legumi a scelta (peso secco)","80 g"],["Verdure miste a scelta","250 g"],["Olio","10 g"]],
+   prNote:"80 g di legumi secchi = circa 150 g di legumi già cotti.",
+   sp:[["Snack al parmigiano","16 g"]],
+   ce:[["Hamburger di tacchino","180 g"],["Verdure","250 g"],["Olio","10 g"]]}},
+ {n:"Giovedì", s:"Gio", m:{col:COL_B, sm:[["Bresaola","40 g"]],
+   pr:[["Riso basmati","80 g"],["Zucchine","200 g"],["Tonno al naturale","80 g"],["Olio","10 g"]],
+   sp:[["Frutta","150 g"]],
+   ce:[["Orata o merluzzo","230 g"],["Fagiolini","200 g"],["Olio","10 g"]]}},
+ {n:"Venerdì", s:"Ven", m:{col:COL_A, sm:[["Frutta","150 g"]],
+   pr:[["Pane integrale","50 g"],["Tacchino","150 g"],["Verdure","250 g"],["Olio","10 g"]],
+   sp:[["Yogurt greco","150 g"]],
+   ce:[["Carne di manzo magra","180 g"],["Verdure","250 g"],["Pane integrale","40 g"],["Olio","10 g"]]}},
+ {n:"Sabato", s:"Sab", m:{col:COL_B, sm:[["Mela","150 g"]],
+   pr:[["Salmone affumicato","100 g"],["Lattuga","100 g"],["Pomodorini","150 g"],["Carote","100 g"],["Olio","10 g"]],
+   prNote:"Un'insalatona unica con tutti gli ingredienti.",
+   sp:[["Mandorle o noci","15 g"]],
+   ce:[["Pizza margherita","1"]], ceNote:"Il pasto libero della settimana: una margherita, senza aggiunte."}},
+ {n:"Domenica", s:"Dom", m:{col:COL_A, sm:[["Frutta","150 g"]],
+   pr:[["Pasta","70 g"],["Vongole sgusciate","150 g"],["oppure"],["Macinato di manzo magro","120 g"],["Salsa di pomodoro","100 g"],["Olio","10 g"]],
+   prNote:"Scegli una delle due versioni: pasta alle vongole oppure pasta al ragù di manzo magro (con la salsa di pomodoro).",
+   sp:[["Noci","10 g"]],
+   ce:[["Petto di pollo","170 g"],["Verdure","250 g"],["Olio","10 g"]]}}
+];
+const KEYS = ["col","sm","pr","sp","ce"];
+const todayIdx = (new Date().getDay()+6)%7;
+let cur = todayIdx;
+const store = {
+  get(k){try{return JSON.parse(localStorage.getItem(k))||{}}catch(e){return {}}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+};
+function weekKey(){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-todayIdx);return "dieta-"+d.toISOString().slice(0,10)}
+let done = store.get(weekKey());
+
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;")}
+function foodsHTML(list){return list.map(f=>f.length===1
+  ? `<li class="alt">${esc(f[0])}</li>`
+  : `<li><span>${esc(f[0])}</span><span class="q">${esc(f[1])}</span></li>`).join("")}
+
+function render(){
+  const d = DAYS[cur];
+  document.querySelectorAll(".day-btn").forEach((b,i)=>b.setAttribute("aria-selected", i===cur));
+  document.getElementById("day-title").textContent = d.n;
+  document.getElementById("today-pill").hidden = cur!==todayIdx;
+  const ol = document.getElementById("meals");
+  ol.innerHTML = KEYS.map(k=>{
+    const id = cur+"-"+k, isDone = !!done[id];
+    const note = d.m[k+"Note"] ? `<p class="note">${esc(d.m[k+"Note"])}</p>` : "";
+    return `<li class="meal ${k==="pr"||k==="ce"?"main":""} ${isDone?"done":""}">
+      <div class="meal-top"><span class="meal-name">${NAMES[k]}</span><span class="meal-time">${T[k]}</span>
+      <button class="chk" type="button" id="chk-${k}" data-id="${id}" aria-pressed="${isDone}">${isDone?"✓ Fatto":"Segna fatto"}</button></div>
+      <ul class="foods">${foodsHTML(d.m[k])}</ul>${note}</li>`}).join("");
+  const n = KEYS.filter(k=>done[cur+"-"+k]).length;
+  document.getElementById("progress").textContent = `${n} di 5 pasti fatti`;
+}
+document.getElementById("days").innerHTML = DAYS.map((d,i)=>
+  `<button class="day-btn" role="tab" id="day-${i}" data-i="${i}" aria-selected="false">${d.s}<small>${i===todayIdx?"oggi":"&nbsp;"}</small></button>`).join("");
+document.getElementById("days").addEventListener("click",e=>{const b=e.target.closest(".day-btn");if(b){cur=+b.dataset.i;render()}});
+document.getElementById("meals").addEventListener("click",e=>{
+  const b=e.target.closest(".chk"); if(!b) return;
+  done[b.dataset.id]=!done[b.dataset.id]; store.set(weekKey(),done); render();
+});
+
+// tabella settimanale
+const tbl = document.getElementById("week");
+const short = l=>l.map(f=>f.length===1?f[0]:`${f[0]} ${f[1]}`).join(", ");
+tbl.innerHTML = `<thead><tr><th></th>${DAYS.map((d,i)=>`<th class="${i===todayIdx?"today":""}">${d.n}</th>`).join("")}</tr></thead><tbody>`+
+  KEYS.map(k=>`<tr><th>${NAMES[k]}</th>${DAYS.map((d,i)=>`<td class="${i===todayIdx?"today":""}">${esc(short(d.m[k]))}</td>`).join("")}</tr>`).join("")+`</tbody>`;
+render();
+</script>
