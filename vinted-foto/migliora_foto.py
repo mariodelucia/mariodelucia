@@ -78,8 +78,13 @@ def migliora(path, rif_stats):
     m = maschera_paglia(rgb)
     lab = srgb_to_lab(rgb)
     oro = lab.copy()
-    oro[..., 1] = lab[..., 1] * 1.25 + 4      # un filo piu' arancio
-    oro[..., 2] = lab[..., 2] * 1.55 + 8      # giallo-oro piu' intenso
+    # adattivo: porta il colore medio della paglia verso quello del riferimento
+    # (paglia spenta -> spinta forte, paglia gia' gialla -> spinta leggera)
+    peso = m[..., 0]; tot = max(peso.sum(), 1)
+    b_att = (lab[..., 2] * peso).sum() / tot
+    a_att = (lab[..., 1] * peso).sum() / tot
+    oro[..., 2] = lab[..., 2] * float(np.clip(45 / max(b_att, 1), 1.0, 1.6))
+    oro[..., 1] = lab[..., 1] + max(0.0, 11 - a_att) * 0.7
     oro[..., 0] = lab[..., 0] * 1.03
     lab = lab * (1 - m * FORZA_COLORE) + oro * (m * FORZA_COLORE)
     img = Image.fromarray(lab_to_srgb(lab).astype(np.uint8))
