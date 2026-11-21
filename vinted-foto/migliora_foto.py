@@ -15,7 +15,7 @@ from PIL import Image, ImageOps, ImageFilter, ImageEnhance
 
 QUI = pathlib.Path(__file__).parent
 RIF = QUI / "riferimento" / "stile.png"
-FORZA_COLORE = 0.75   # 0 = nessun trasferimento, 1 = colori identici al riferimento
+FORZA_COLORE = 1.0   # intensita' dell'effetto oro sulla paglia (0 = nessuno)
 USCITA = (1600, 2000) # 4:5
 
 def srgb_to_lab(rgb):
@@ -48,25 +48,51 @@ def taglio_45(img):
         nw = int(h * r); x = (w - nw) // 2; img = img.crop((x, 0, x + nw, h))
     else:
         nh = int(w / r); y = (h - nh) // 2; img = img.crop((0, y, w, y + nh))
-    return img.resize(USCITA, Image.LANCZOS)
+    # niente ingrandimenti (sfocano): si riduce solo se piu' grande di 1600x2000
+    if img.size[0] > USCITA[0]:
+        img = img.resize(USCITA, Image.LANCZOS)
+    return img
+
+def maschera_paglia(rgb):
+    """Pixel giallo/oro (paglia), sfumati. Il capo grigio/scuro resta escluso."""
+    hsv = np.asarray(Image.fromarray(rgb.astype(np.uint8)).convert("HSV"), dtype=np.float64)
+    h = hsv[..., 0] * 360 / 255; s = hsv[..., 1] / 255; v = hsv[..., 2] / 255
+    tono = np.clip(1 - np.abs(h - 38) / 22, 0, 1)        # arancio-giallo
+    m = tono * np.clip((s - 0.18) / 0.15, 0, 1) * np.clip((v - 0.15) / 0.2, 0, 1)
+    m = Image.fromarray((m * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(6))
+    return np.asarray(m, dtype=np.float64)[..., None] / 255
 
 def migliora(path, rif_stats):
-    img = ImageOps.exif_transpose(Image.open(path)).convert("RGB")
-    img = taglio_45(img)
-    # esposizione/contrasto automatici leggeri (taglia 0.5% di estremi)
-    img = ImageOps.autocontrast(img, cutoff=0.5, preserve_tone=True)
-    lab = srgb_to_lab(np.asarray(img, dtype=np.float64))
-    m, s = stats(lab); rm, rs = rif_stats
-    nuovo = (lab - m) / s * rs + rm
-    lab = lab * (1 - FORZA_COLORE) + nuovo * FORZA_COLORE
+    img = taglio_45(ImageOps.exif_transpose(Image.open(path)).convert("RGB"))
+    img = ImageOps.autocontrast(img, cutoff=0.3, preserve_tone=True)
+    rgb = np.asarray(img, dtype=np.float64)
+
+    # 1) esposizione: porta la luminosita' media verso quella del riferimento
+    lab = srgb_to_lab(rgb)
+    Lm = lab[..., 0].mean(); target = rif_stats[0][0]
+    gamma = np.clip(np.log(max(target, 1) / 100) / np.log(max(Lm, 1) / 100), 0.80, 1.0)   # solo schiarire, mai scurire
+    lab[..., 0] = 100 * (lab[..., 0] / 100) ** gamma
+    rgb = lab_to_srgb(lab)
+
+    # 2) paglia: calda, oro e viva come nel riferimento (solo lei, non il capo)
+    m = maschera_paglia(rgb)
+    lab = srgb_to_lab(rgb)
+    oro = lab.copy()
+    oro[..., 1] = lab[..., 1] * 1.25 + 4      # un filo piu' arancio
+    oro[..., 2] = lab[..., 2] * 1.55 + 8      # giallo-oro piu' intenso
+    oro[..., 0] = lab[..., 0] * 1.03
+    lab = lab * (1 - m * FORZA_COLORE) + oro * (m * FORZA_COLORE)
     img = Image.fromarray(lab_to_srgb(lab).astype(np.uint8))
-    # curva a S morbida per profondita'
+
+    # 3) il capo resta del suo colore reale: saturazione globale minima
+    img = ImageEnhance.Color(img).enhance(1.03)
+
+    # 4) curva a S morbida + "chiarezza" (contrasto locale per trama e cuciture)
     x = np.arange(256) / 255.0
-    curva = x + 0.22 * (x - x**2) * (2*x - 1)
-    curva = np.clip(curva * 255, 0, 255).astype(np.uint8)
+    curva = np.clip((x + 0.22 * (x - x**2) * (2*x - 1)) * 255, 0, 255).astype(np.uint8)
     img = img.point(list(curva) * 3)
-    img = ImageEnhance.Contrast(img).enhance(1.03)
-    img = img.filter(ImageFilter.UnsharpMask(radius=1.6, percent=55, threshold=2))
+    img = img.filter(ImageFilter.UnsharpMask(radius=25, percent=22, threshold=0))
+    img = img.filter(ImageFilter.UnsharpMask(radius=1.4, percent=60, threshold=2))
     return img
 
 def main():
