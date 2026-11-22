@@ -16,7 +16,7 @@ from PIL import Image, ImageOps, ImageFilter, ImageEnhance
 QUI = pathlib.Path(__file__).parent
 RIF = QUI / "riferimento" / "stile.png"
 FORZA_COLORE = 1.0   # intensita' dell'effetto oro sulla paglia (0 = nessuno)
-USCITA = (1600, 2000) # 4:5
+USCITA = (2160, 2700) # 4:5, larghezza 4K (2160 px)
 
 def srgb_to_lab(rgb):
     c = rgb / 255.0
@@ -48,9 +48,8 @@ def taglio_45(img):
         nw = int(h * r); x = (w - nw) // 2; img = img.crop((x, 0, x + nw, h))
     else:
         nh = int(w / r); y = (h - nh) // 2; img = img.crop((0, y, w, y + nh))
-    # niente ingrandimenti (sfocano): si riduce solo se piu' grande di 1600x2000
-    if img.size[0] > USCITA[0]:
-        img = img.resize(USCITA, Image.LANCZOS)
+    # porta sempre a 2160x2700; la nitidezza viene ridata dopo
+    img = img.resize(USCITA, Image.LANCZOS)
     return img
 
 def maschera_paglia(rgb):
@@ -96,8 +95,8 @@ def migliora(path, rif_stats):
     x = np.arange(256) / 255.0
     curva = np.clip((x + 0.22 * (x - x**2) * (2*x - 1)) * 255, 0, 255).astype(np.uint8)
     img = img.point(list(curva) * 3)
-    img = img.filter(ImageFilter.UnsharpMask(radius=25, percent=22, threshold=0))
-    img = img.filter(ImageFilter.UnsharpMask(radius=1.4, percent=60, threshold=2))
+    img = img.filter(ImageFilter.UnsharpMask(radius=35, percent=22, threshold=0))
+    img = img.filter(ImageFilter.UnsharpMask(radius=2.2, percent=85, threshold=2))
     return img
 
 def main():
@@ -110,7 +109,7 @@ def main():
     rif_stats = stats(srgb_to_lab(np.asarray(rif, dtype=np.float64)))
     files = sorted(p for p in src.iterdir() if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".heic", ".webp"})
     for p in files:
-        migliora(p, rif_stats).save(out / (p.stem + ".jpg"), quality=93, optimize=True)
+        migliora(p, rif_stats).save(out / (p.stem + ".jpg"), quality=95, subsampling=0, optimize=True)
         print("ok", p.name)
     print(f"{len(files)} foto salvate in {out}")
 
