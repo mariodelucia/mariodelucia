@@ -139,7 +139,9 @@ def migliora(path, rif_stats):
     curva = np.clip((x + 0.22 * (x - x**2) * (2*x - 1)) * 255, 0, 255).astype(np.uint8)
     img = img.point(list(curva) * 3)
     img = img.filter(ImageFilter.UnsharpMask(radius=35, percent=12, threshold=0))
-    img = img.filter(ImageFilter.UnsharpMask(radius=2.2, percent=85, threshold=2))
+    # riduzione rumore leggera prima della nitidezza (le foto arrivano compresse)
+    img = img.filter(ImageFilter.MedianFilter(5))
+    img = img.filter(ImageFilter.UnsharpMask(radius=2.2, percent=70, threshold=4))
     return img
 
 def main():
