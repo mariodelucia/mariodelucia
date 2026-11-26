@@ -16,6 +16,7 @@ from PIL import Image, ImageOps, ImageFilter, ImageEnhance
 QUI = pathlib.Path(__file__).parent
 RIF = QUI / "riferimento" / "stile.png"
 FORZA_COLORE = 1.0   # intensita' dell'effetto oro sulla paglia (0 = nessuno)
+STIRA = 0.7          # 0 = nessun effetto anti-pieghe, 1 = massimo
 USCITA = (2160, 2700) # 4:5, larghezza 4K (2160 px)
 
 def srgb_to_lab(rgb):
@@ -61,13 +62,54 @@ def maschera_paglia(rgb):
     m = Image.fromarray((m * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(6))
     return np.asarray(m, dtype=np.float64)[..., None] / 255
 
+
+def _box(a, r):
+    """Box blur separabile (cumsum) su array 2D float."""
+    if r < 1: return a
+    p = np.pad(a, ((r + 1, r), (0, 0)), mode="edge"); c = np.cumsum(p, 0)
+    a = (c[2 * r + 1:] - c[:-2 * r - 1]) / (2 * r + 1)
+    p = np.pad(a, ((0, 0), (r + 1, r)), mode="edge"); c = np.cumsum(p, 1)
+    return (c[:, 2 * r + 1:] - c[:, :-2 * r - 1]) / (2 * r + 1)
+
+def _blur(a, sigma):
+    r = max(1, int(round(sigma * 0.9)))
+    for _ in range(3): a = _box(a, r)
+    return a
+
+def stira(rgb, paglia, forza=STIRA):
+    """Attenua le pieghe: toglie le ombre "medie" (pieghe) dal tessuto
+    lasciando la trama fine e i bordi/bottoni/finiture di colore diverso.
+    Non cambia la forma del capo e non nasconde macchie piccole o difetti."""
+    if forza <= 0: return rgb
+    lab = srgb_to_lab(rgb); L = lab[..., 0]
+    h, w = L.shape; sc = w / 1000.0
+    capo = 1 - paglia[..., 0]
+    # colore dominante del capo (zona centrale)
+    cy, cx = slice(h // 4, 3 * h // 4), slice(w // 4, 3 * w // 4)
+    sel = capo[cy, cx] > 0.8
+    a0 = np.median(lab[cy, cx, 1][sel]); b0 = np.median(lab[cy, cx, 2][sel])
+    d2 = (lab[..., 1] - a0) ** 2 + (lab[..., 2] - b0) ** 2
+    simile = np.exp(-d2 / (2 * 9.0 ** 2)) * capo
+    simile = np.where(L > 8, simile, 0)
+    # blur normalizzato: solo pixel del tessuto principale
+    def nblur(x, s):
+        return _blur(x * simile, s) / (_blur(simile, s) + 1e-4)
+    medio = nblur(L, 7 * sc)       # ombre delle pieghe + trama media
+    base = nblur(L, 45 * sc)       # illuminazione generale del capo
+    piega = np.clip(medio - base, -14, 14)
+    lab[..., 0] = L - forza * piega * simile
+    return lab_to_srgb(lab)
+
 def migliora(path, rif_stats):
     img = taglio_45(ImageOps.exif_transpose(Image.open(path)).convert("RGB"))
-    img = ImageOps.autocontrast(img, cutoff=0.3, preserve_tone=True)
     rgb = np.asarray(img, dtype=np.float64)
 
-    # 1) esposizione: porta la luminosita' media verso quella del riferimento
+    # 1) esposizione: livelli automatici SOLO sulla luminosita' (i colori del
+    #    capo non vengono saturati), poi luminosita' media verso il riferimento
     lab = srgb_to_lab(rgb)
+    lo, hi = np.percentile(lab[..., 0], [0.3, 99.7])
+    lo = min(lo, 12.0); hi = max(hi, 85.0)          # stretch moderato
+    lab[..., 0] = np.clip((lab[..., 0] - lo) / (hi - lo) * 100, 0, 100)
     Lm = lab[..., 0].mean(); target = rif_stats[0][0]
     gamma = np.clip(np.log(max(target, 1) / 100) / np.log(max(Lm, 1) / 100), 0.80, 1.0)   # solo schiarire, mai scurire
     lab[..., 0] = 100 * (lab[..., 0] / 100) ** gamma
@@ -86,7 +128,8 @@ def migliora(path, rif_stats):
     oro[..., 1] = lab[..., 1] + max(0.0, 11 - a_att) * 0.7
     oro[..., 0] = lab[..., 0] * 1.03
     lab = lab * (1 - m * FORZA_COLORE) + oro * (m * FORZA_COLORE)
-    img = Image.fromarray(lab_to_srgb(lab).astype(np.uint8))
+    rgb = stira(lab_to_srgb(lab), m)          # 2b) attenua le pieghe del tessuto
+    img = Image.fromarray(rgb.astype(np.uint8))
 
     # 3) il capo resta del suo colore reale: saturazione globale minima
     img = ImageEnhance.Color(img).enhance(1.03)
@@ -95,7 +138,7 @@ def migliora(path, rif_stats):
     x = np.arange(256) / 255.0
     curva = np.clip((x + 0.22 * (x - x**2) * (2*x - 1)) * 255, 0, 255).astype(np.uint8)
     img = img.point(list(curva) * 3)
-    img = img.filter(ImageFilter.UnsharpMask(radius=35, percent=22, threshold=0))
+    img = img.filter(ImageFilter.UnsharpMask(radius=35, percent=12, threshold=0))
     img = img.filter(ImageFilter.UnsharpMask(radius=2.2, percent=85, threshold=2))
     return img
 
